@@ -54,6 +54,8 @@ A Windows batch file `AstroSignature_Install.bat` is included for one-click inst
    - The console output shows exactly which path was used
 3. Refresh scripts in Siril: **Preferences > Scripts > refresh > Apply**
 
+> **Note:** Windows may display a security prompt the first time you run the installer. This is normal for downloaded batch files — click **Run anyway** to proceed.
+
 > **If the installer fails with a permissions error:** Right-click `AstroSignature_Install.bat` and select **Run as administrator**.
 
 > **If the installer cannot find your Siril scripts folder:** It will create the default path and warn you. Check **Preferences > Scripts** in Siril to confirm the correct path, then manually copy `AstroSignature.py` to that location.
