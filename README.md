@@ -16,6 +16,7 @@ AstroSignature is a Python script for [Siril](https://siril.org) (v1.4.2+) that 
 - **Vertical flip correction** — handles plate-solved images and smart scope native orientation (Dwarf 3, Seestar, Vespera etc.)
 - **Cross-platform** — Windows, macOS, Linux font detection with graceful fallback
 - **Shadow effect** — subtle drop shadow for readability on any background
+- **Multi-format support** — FITS, 16-bit TIFF, 32-bit float TIFF, and JPEG with correct bit-depth preservation
 
 ---
 
@@ -26,7 +27,6 @@ AstroSignature is a Python script for [Siril](https://siril.org) (v1.4.2+) that 
 ![Input Dialog](images/Input_Dialog.png)
 
 ![Example Result](images/Example_Result.png)
-
 
 ---
 
@@ -42,26 +42,53 @@ AstroSignature is a Python script for [Siril](https://siril.org) (v1.4.2+) that 
 
 ## Installation
 
-### Option 1 — Manual (All platforms)
+### Option 1 — Windows Auto-Installer (Batch File — Windows Only)
+
+A Windows batch file `AstroSignature_Install.bat` is included for one-click installation. The installer automatically searches all known Siril script locations on your system and installs to whichever one is found.
+
+1. Download both `AstroSignature_Install.bat` and `AstroSignature.py` (or `.txt`) and place them in the **same folder** — your Downloads folder works fine, or any folder you prefer. The installer looks for the script file in whatever folder it is run from.
+2. To install or update:
+   - Make sure both files are in the same folder
+   - Double-click `AstroSignature_Install.bat`
+   - The installer detects your Siril scripts directory, installs the script, and cleans up automatically
+   - The console output shows exactly which path was used
+3. Refresh scripts in Siril: **Preferences > Scripts > refresh > Apply**
+
+> **If the installer fails with a permissions error:** Right-click `AstroSignature_Install.bat` and select **Run as administrator**.
+
+> **If the installer cannot find your Siril scripts folder:** It will create the default path and warn you. Check **Preferences > Scripts** in Siril to confirm the correct path, then manually copy `AstroSignature.py` to that location.
+
+---
+
+### Windows Scripts Directory
+
+The Siril scripts folder location varies on Windows depending on your Siril version and installation type. The auto-installer checks all of these automatically. If installing manually, check these locations in order — use whichever one exists on your system:
+
+| Priority | Path |
+|---|---|
+| 1 | `C:\Users\[username]\AppData\Roaming\siril\scripts\` |
+| 2 | `C:\Users\[username]\AppData\Roaming\Siril\scripts\` |
+| 3 | `C:\Users\[username]\AppData\Local\siril-scripts\utility\` |
+| 4 | `C:\Users\[username]\AppData\Local\siril\scripts\` |
+| 5 | `C:\Users\[username]\AppData\Local\Siril\scripts\` |
+| 6 | `C:\Program Files\Siril\scripts\` |
+| 7 | `C:\Program Files (x86)\Siril\scripts\` |
+
+> **Tip:** If you are unsure which path Siril is using on your system, open Siril and go to **Preferences > Scripts** — the configured scripts path is displayed there.
+
+> **Note:** If none of these folders exist yet, create `C:\Users\[username]\AppData\Roaming\siril\scripts\` manually, then add it in Siril under **Preferences > Scripts**.
+
+---
+
+### Option 2 — Manual (All platforms)
 
 1. Download `AstroSignature.py`
 2. Place it in your Siril user scripts folder:
-   - **Windows:** `C:\Users\[username]\AppData\Roaming\siril\scripts\`
+   - **Windows:** See the Windows Scripts Directory section above
    - **macOS:** `~/Library/Application Support/siril/scripts/`
    - **Linux:** `~/.local/share/siril/scripts/`
 3. In Siril: **Preferences > Scripts > click the refresh button > Apply**
 4. The script appears under **Scripts > Python Scripts**
-
-### Option 2 — Windows Auto-Installer (Batch File — Windows Only)
-
-A Windows batch file `AstroSignature_Install.bat` is included for one-click installation:
-
-1. Download `AstroSignature_Install.bat` and save it permanently in your Downloads folder
-2. Each time you download a new version of `AstroSignature.py` (or `.txt`):
-   - Place it in your Downloads folder
-   - Double-click `AstroSignature_Install.bat`
-   - The batch file renames, installs, and cleans up automatically
-3. Refresh scripts in Siril: **Preferences > Scripts > refresh > Apply**
 
 ---
 
@@ -71,7 +98,7 @@ A Windows batch file `AstroSignature_Install.bat` is included for one-click inst
 2. Run: **Scripts > Python Scripts > AstroSignature**
 3. In the dialog:
    - **Line 1** — edit your name and target name (e.g. `Randy Holder  |  M63 - Sunflower Galaxy`)
-   - **Line 2** — enter session details (e.g. `Dwarf 3  |  30s Exp  |  Gain 80  |  278 subs  |  Astro Filter`)
+   - **Line 2** — enter session details (e.g. `Tontitown, AR  |  30s Exp  |  Gain 80  |  278 subs  |  Astro Filter`)
    - **Opacity** — adjust slider (default 40%)
    - **Flip correction** — leave **ON** for plate-solved images and smart scope data (Dwarf 3, Seestar, Vespera etc.). Turn OFF only if your image data is correctly oriented and was not flipped by Siril
    - **Position** — choose from 9 grid positions (default: Bottom Right)
@@ -96,6 +123,21 @@ Siril flips images vertically during plate solving to correct their orientation.
 
 ---
 
+## Supported Image Formats
+
+AstroSignature automatically detects and preserves the bit depth and format of your image:
+
+| Format | Support |
+|---|---|
+| FITS (float32) | ✅ Full support |
+| FITS (uint16) | ✅ Full support |
+| 16-bit TIFF | ✅ Full support |
+| 32-bit float TIFF | ✅ Full support |
+| 8-bit JPEG | ✅ Full support |
+| 8-bit TIFF | ✅ Full support |
+
+---
+
 ## Supported Fonts
 
 AstroSignature automatically scans your system for available fonts and displays only those that are actually installed. Fonts vary by OS:
@@ -117,6 +159,12 @@ If no system fonts are found, falls back to Pillow's built-in default font.
 | 1.2.0 | Added font selection dropdown from available system fonts |
 | 1.3.0 | Added independent font size sliders for Line 1 and Line 2. QA verified across all 9 positions and both flip states |
 | 1.3.1 | Cross-platform font support — Windows, macOS, Linux |
+| 1.3.2 | Preserve source bit depth/range for FITS, 16-bit TIFF, and 8-bit JPEG/TIFF |
+| 1.3.3 | Fix 8-bit JPEG write-back by sending normalized float pixel data to Siril |
+| 1.3.4 | Fix blank output for TIFF inputs; smart image pipeline handles HW/CHW/HWC layouts and 8-bit/16-bit/float ranges automatically. Enhancement credit: @donheff (Issue #7) |
+| 1.3.5 | GUI version label corrected; default fields restored to author defaults |
+| 1.3.6 | Generic default field values for friendlier first-run experience (pipe-separated placeholders guide new users on formatting) |
+| 1.3.6 | Auto-installer v2 — detects all known Windows Siril script locations (Issue #6) |
 
 ---
 
@@ -157,3 +205,4 @@ Bug reports, feature requests and feedback are welcome via GitHub Issues.
 - [Siril](https://siril.org) — the excellent open-source astrophotography processing software this script is built for
 - The Siril development team for the sirilpy Python API
 - The astrophotography community for inspiration and testing feedback
+- @donheff — TIFF blank output fix and image pipeline improvements (Issue #7)
