@@ -4,7 +4,7 @@
 # AstroSignature.py — Custom Text Signature Tool for Siril
 # Author: Randy Holder
 # Contact: randy.holder7@gmail.com
-# Version: 1.3.0
+# Version: 1.3.5
 #
 # Copyright (C) 2026 Randy Holder
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -53,10 +53,18 @@
 # 1.3.0 - Added independent font size sliders for Line 1 and Line 2
 #          QA verified across all 9 positions and both flip states
 # 1.3.1 - Cross-platform font support — Windows, macOS, Linux
+# 1.3.2 - Preserve source bit depth/range for FITS, 16-bit TIFF, and 8-bit JPEG/TIFF
+# 1.3.3 - Fix 8-bit JPEG write-back by sending normalized float pixel data to Siril
+# 1.3.4 - Fix blank output for TIFF inputs; smart image pipeline handles
+#          HW/CHW/HWC layouts and 8-bit/16-bit/float ranges automatically
+#          Enhancement credit: Don Heffernan (Issue #7)
+# 1.3.5 - GUI version label corrected; default fields restored to author defaults
+# 1.3.6 - Generic default field values for friendlier first-run experience
+#          (pipe-separated placeholders guide new users on formatting)
 #
 # ***********************************************
 
-VERSION = "1.3.1"
+VERSION = "1.3.6"
 
 import sys
 import os
@@ -83,7 +91,7 @@ def get_user_input():
         from tkinter import messagebox
 
         root = tk.Tk()
-        root.title("AstroSignature Tool v1.3.1")
+        root.title("AstroSignature Tool v1.3.6")
         root.resizable(False, False)
         root.configure(bg="#2b2b2b")
 
@@ -93,26 +101,29 @@ def get_user_input():
         y = (root.winfo_screenheight() // 2) - (h // 2)
         root.geometry(f"{w}x{h}+{x}+{y}")
 
-        tk.Label(root, text="AstroSignature Tool  v1.3.1",
+        # ── Corrected: version label matches VERSION constant ──
+        tk.Label(root, text="AstroSignature Tool  v1.3.6",
                 bg="#1a1a2e", fg="#c9a84c",
                 font=("Arial", 13, "bold"), pady=10).pack(fill="x")
 
-        tk.Label(root, text="Line 1 — Your name (fixed) + Target (edit each time):",
+        tk.Label(root, text="Line 1 — Your name + Target  (use  |  to separate fields):",
                 bg="#2b2b2b", fg="#ffffff",
                 font=("Arial", 9)).pack(anchor="w", padx=20, pady=(12, 0))
-        name_var = tk.StringVar(value="Randy Holder  |  M63 - Sunflower Galaxy")
+
+        # ── Generic defaults — friendly for all users ──
+        name_var = tk.StringVar(value="Your Name  |  Target Name")
         name_entry = tk.Entry(root, textvariable=name_var, width=58,
                 bg="#3c3f41", fg="#ffffff",
                 font=("Arial", 10),
                 relief="flat", bd=4)
         name_entry.pack(padx=20, pady=(2, 0))
 
-        tk.Label(root, text="Line 2 — Session details (edit each time):",
+        tk.Label(root, text="Line 2 — Session details  (use  |  to separate fields):",
                 bg="#2b2b2b", fg="#ffffff",
                 font=("Arial", 9)).pack(anchor="w", padx=20, pady=(10, 0))
-        session_var = tk.StringVar(
-            value="Dwarf 3  |  30s Exp  |  Gain 80  |  278 subs  |  Astro Filter"
-        )
+
+        # ── Generic defaults — friendly for all users ──
+        session_var = tk.StringVar(value="Your Location  |  Exposure  |  Subs  |  Filter")
         session_entry = tk.Entry(root, textvariable=session_var, width=58,
                                  bg="#3c3f41", fg="#ffffff",
                                  font=("Arial", 10), relief="flat", bd=4)
@@ -431,6 +442,145 @@ def find_font(size, font_path=None):
     return ImageFont.load_default()
 
 
+def _data_to_hwc_rgb_float01(data):
+    """Return (HWC RGB float image in 0..1, metadata needed to restore original layout/range).
+
+    Handles all image layouts Siril may deliver:
+      HW       — 2D grayscale
+      CHW      — Siril native channel-first (1 or 3 channels)
+      HWC      — channel-last (1, 3, or 4 channels)
+
+    Also handles all common bit depths:
+      uint8    — standard 8-bit
+      uint16   — 16-bit TIFF / FITS
+      float32  — normalized FITS float
+      uint16 container with 8-bit values — JPEG loaded by Siril into wide array
+    """
+    arr = np.asarray(data)
+    meta = {
+        "shape": arr.shape,
+        "dtype": arr.dtype,
+        "layout": "unknown",
+        "channels": None,
+        "scale": 1.0,
+        "output_scale": 1.0,
+        "float_input": np.issubdtype(arr.dtype, np.floating),
+        "looks_8bit": False,
+    }
+
+    # Identify Siril/Python image layout
+    if arr.ndim == 2:
+        meta["layout"] = "HW"
+        meta["channels"] = 1
+        work = arr[..., None]
+    elif arr.ndim == 3 and arr.shape[0] in (1, 3):
+        meta["layout"] = "CHW"
+        meta["channels"] = arr.shape[0]
+        work = np.transpose(arr, (1, 2, 0))
+    elif arr.ndim == 3 and arr.shape[-1] in (1, 3, 4):
+        meta["layout"] = "HWC"
+        meta["channels"] = arr.shape[-1]
+        work = arr[..., :3]
+    else:
+        raise ValueError(f"Unsupported image array shape from Siril: {arr.shape}")
+
+    work = work.astype(np.float32, copy=False)
+
+    # Determine source range.
+    # Siril can load 8-bit JPEGs into a uint16 container while actual pixel
+    # values remain 0..255. Inspecting the actual finite max (not just dtype)
+    # lets us detect this and avoid scaling errors that produce blank output.
+    # The same logic correctly identifies 16-bit TIFFs (max near 65535).
+    finite = work[np.isfinite(work)]
+    maxv = float(finite.max()) if finite.size else 1.0
+
+    if np.issubdtype(arr.dtype, np.integer):
+        dtype_max = float(np.iinfo(arr.dtype).max)
+        if maxv <= 255.0 and dtype_max > 255.0:
+            # 8-bit image (JPEG) stored in a wider Siril array
+            scale = 255.0
+            output_scale = dtype_max
+            meta["looks_8bit"] = True
+            print(f"  Image range detected: 8-bit values in {arr.dtype} container (JPEG-like)")
+        else:
+            # True 16-bit (TIFF/FITS) or 8-bit uint8
+            scale = dtype_max
+            output_scale = dtype_max
+            print(f"  Image range detected: {arr.dtype} full range (scale={dtype_max:.0f})")
+    else:
+        # Float input (FITS float32 etc.)
+        if maxv <= 1.0:
+            scale = 1.0
+            output_scale = 1.0
+        elif maxv <= 255.0:
+            scale = 255.0
+            output_scale = 1.0
+            meta["looks_8bit"] = True
+        elif maxv <= 65535.0:
+            scale = 65535.0
+            output_scale = 1.0
+        else:
+            scale = maxv
+            output_scale = 1.0
+        print(f"  Image range detected: float input, max={maxv:.4f}, scale={scale:.0f}")
+
+    meta["scale"] = scale
+    meta["output_scale"] = output_scale
+
+    work01 = np.clip(work / scale, 0.0, 1.0)
+
+    # Pillow drawing is RGB. For mono images, make temporary RGB.
+    if work01.shape[-1] == 1:
+        work01 = np.repeat(work01, 3, axis=-1)
+    elif work01.shape[-1] >= 3:
+        work01 = work01[..., :3]
+
+    return work01, meta
+
+
+def _hwc_rgb_float01_to_layout(img01, meta, *, scaled=True):
+    """Convert HWC RGB float 0..1 data back to the original Siril layout.
+
+    scaled=True  — preserve the original dtype/range (default, used for FITS/TIFF)
+    scaled=False — return float32 normalized 0..1 in the original layout
+                   (used for 8-bit JPEG write-back to avoid uint8 black-image bug)
+    """
+    img01 = np.clip(img01, 0.0, 1.0).astype(np.float32, copy=False)
+
+    # If the source was mono, convert the signed RGB result back to luminance
+    if meta["channels"] == 1:
+        out_hwc = (0.2126 * img01[..., 0] +
+                   0.7152 * img01[..., 1] +
+                   0.0722 * img01[..., 2])[..., None].astype(np.float32, copy=False)
+    else:
+        out_hwc = img01
+
+    if scaled:
+        out = out_hwc * float(meta.get("output_scale", meta["scale"]))
+        if meta["float_input"]:
+            out = out.astype(meta["dtype"], copy=False)
+        else:
+            info = np.iinfo(meta["dtype"])
+            out = np.rint(out)
+            out = np.clip(out, info.min, info.max).astype(meta["dtype"])
+    else:
+        out = out_hwc.astype(np.float32, copy=False)
+
+    if meta["layout"] == "HW":
+        return out[..., 0]
+    if meta["layout"] == "CHW":
+        return np.transpose(out, (2, 0, 1))
+    if meta["layout"] == "HWC":
+        return out
+
+    raise ValueError(f"Unsupported original layout: {meta['layout']}")
+
+
+def _hwc_rgb_float01_to_original_layout(img01, meta):
+    """Convert HWC RGB float 0..1 data back to original Siril layout/range/dtype."""
+    return _hwc_rgb_float01_to_layout(img01, meta, scaled=True)
+
+
 def apply_signature(siril, line1, line2, opacity_pct, flipped=True, position="Bottom Right", font_path=None, size1=28, size2=22):
     print(f"Applying signature — opacity {opacity_pct}% — position: {position} — font: {os.path.basename(font_path) if font_path else 'default'} — sizes: {size1}/{size2}")
 
@@ -440,26 +590,15 @@ def apply_signature(siril, line1, line2, opacity_pct, flipped=True, position="Bo
             if fit is None:
                 print("ERROR: No image loaded in Siril.")
                 return False
-            img_array = np.array(fit.data, dtype=np.float32)
-            print(f"Image shape from Siril: {img_array.shape}")
 
-            # Normalise to [0, 1]
-            if img_array.max() > 1.0:
-                img_array = img_array / 65535.0
-
-            # Ensure HWC RGB — Siril returns CHW (3, H, W)
-            if img_array.ndim == 3 and img_array.shape[0] == 3:
-                img_hwc = np.transpose(img_array, (1, 2, 0))
-            elif img_array.ndim == 2:
-                img_hwc = np.stack([img_array] * 3, axis=-1)
-            else:
-                img_hwc = img_array
+            img_hwc, meta = _data_to_hwc_rgb_float01(fit.data)
+            print(f"  Image shape from Siril: {meta['shape']}; dtype: {meta['dtype']}; detected scale: {meta['scale']}")
 
             height, width = img_hwc.shape[:2]
-            img_uint8 = (np.clip(img_hwc, 0, 1) * 255).astype(np.uint8)
-            pil_img = Image.fromarray(img_uint8, mode="RGB").convert("RGBA")
 
-            # Font loading — use selected font and user-specified sizes
+            pil_size = (width, height)
+
+            # Font loading
             font1 = find_font(size1, font_path)
             font2 = find_font(size2, font_path)
 
@@ -471,13 +610,8 @@ def apply_signature(siril, line1, line2, opacity_pct, flipped=True, position="Bo
             tw2, th2 = bb2[2] - bb2[0], bb2[3] - bb2[1]
             gap = max(6, int(height * 0.005))
 
-            # Use user's flip selection from dialog
-            print(f"Flip correction: {flipped}")
+            print(f"  Flip correction: {flipped}")
 
-            # Calculate position from dropdown selector (case-insensitive)
-            # When flipped=True: Siril has vertically flipped the data, so
-            #   "bottom" on screen = "top" in data array — we invert vertical axis
-            # When flipped=False: data and display match — use position directly
             pos = position.lower()
             mx = int(width  * 0.025)
             my = int(height * 0.025)
@@ -503,9 +637,6 @@ def apply_signature(siril, line1, line2, opacity_pct, flipped=True, position="Bo
                 x2 = (width - tw2) // 2
 
             # Vertical alignment
-            # For both flipped and non-flipped: calculate position as if normal
-            # When flipped=True, the overlay flip below will mirror the position
-            # so "bottom" coordinates end up displaying at bottom of screen correctly
             if "top" in pos:
                 y1 = my
                 y2 = y1 + th1 + gap
@@ -516,8 +647,8 @@ def apply_signature(siril, line1, line2, opacity_pct, flipped=True, position="Bo
                 y1 = (height - block_h) // 2
                 y2 = y1 + th1 + gap
 
-            # Draw text on a separate overlay
-            overlay = Image.new("RGBA", pil_img.size, (0, 0, 0, 0))
+            # Draw text on a transparent overlay
+            overlay = Image.new("RGBA", pil_size, (0, 0, 0, 0))
             draw = ImageDraw.Draw(overlay)
             alpha = int(255 * opacity_pct / 100.0)
             shadow_alpha = max(20, int(alpha * 0.35))
@@ -527,22 +658,34 @@ def apply_signature(siril, line1, line2, opacity_pct, flipped=True, position="Bo
             draw.text((x1, y1), line1, font=font1, fill=(255, 255, 255, alpha))
             draw.text((x2, y2), line2, font=font2, fill=(255, 255, 255, alpha))
 
-            # For plate-solve flipped images, flip overlay vertically to correct text orientation
-            # For non-flipped images, flip overlay horizontally to correct text orientation
             if flipped:
-                print("Image is plate-solve flipped — correcting text orientation.")
+                print("  Plate-solve flip detected — correcting text orientation.")
                 overlay = overlay.transpose(Image.FLIP_TOP_BOTTOM)
+            # Note: no horizontal flip applied when flipped=False.
+            # The overlay is drawn directly without mirroring for unflipped images.
+
+            # Blend overlay into normalized float image
+            overlay_np = np.asarray(overlay, dtype=np.float32) / 255.0
+            overlay_rgb = overlay_np[..., :3]
+            overlay_alpha = overlay_np[..., 3:4]
+            result_hwc = img_hwc * (1.0 - overlay_alpha) + overlay_rgb * overlay_alpha
+
+            # Restore original Siril layout, then write back.
+            # JPEG/8-bit path: write normalized float32 to avoid black-image
+            # artifacts that occur when uint8 data is written into a 16-bit container.
+            if meta.get("looks_8bit"):
+                print("  8-bit/JPEG-like image detected — writing normalized float pixel data for safe save.")
+                result_data = _hwc_rgb_float01_to_layout(result_hwc, meta, scaled=False)
+                if result_data.shape != fit.data.shape:
+                    raise ValueError(f"Internal shape mismatch: result {result_data.shape}, original {fit.data.shape}")
+                siril.set_image_pixeldata(result_data)
             else:
-                overlay = overlay.transpose(Image.FLIP_LEFT_RIGHT)
-
-            # Composite text overlay onto original unmodified image
-            composited = Image.alpha_composite(pil_img, overlay).convert("RGB")
-            result_hwc = np.array(composited, dtype=np.float32) / 255.0
-            result_chw = np.transpose(result_hwc, (2, 0, 1))  # back to CHW
-
-            # Write back to Siril using correct API
-            fit.data[:] = result_chw
-            siril.set_image_pixeldata(fit.data)
+                # Standard path — FITS, 16-bit TIFF, float FITS
+                result_data = _hwc_rgb_float01_to_original_layout(result_hwc, meta)
+                if result_data.shape != fit.data.shape:
+                    raise ValueError(f"Internal shape mismatch: result {result_data.shape}, original {fit.data.shape}")
+                fit.data[:] = result_data
+                siril.set_image_pixeldata(fit.data)
 
             print("Signature applied successfully.")
             print(f"  Line 1 : {line1}")
@@ -558,7 +701,7 @@ def apply_signature(siril, line1, line2, opacity_pct, flipped=True, position="Bo
 
 def main():
     print("=" * 55)
-    print("  AstroSignature Tool v1.3.1 — Randy Holder")
+    print("  AstroSignature Tool v1.3.6 — Randy Holder")
     print("  Two-line text signature for Siril 1.4+")
     print("=" * 55)
 
