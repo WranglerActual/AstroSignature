@@ -46,7 +46,7 @@ AstroSignature is a Python script for [Siril](https://siril.org) (v1.4.2+) that 
 
 A Windows batch file `AstroSignature_Install.bat` is included for one-click installation. The installer automatically searches all known Siril script locations on your system and installs to whichever one is found.
 
-1. Download both `AstroSignature_Install.bat` and `AstroSignature.py` (or `.txt`) and place them in the **same folder** — your Downloads folder works fine, or any folder you prefer. The installer looks for the script file in whatever folder it is run from.
+1. Download both `AstroSignature_Install.bat` and `AstroSignature.py` and place them in the **same folder** — your Downloads folder works fine, or any folder you prefer. The installer looks for the script file in whatever folder it is run from.
 2. To install or update:
    - Make sure both files are in the same folder
    - Double-click `AstroSignature_Install.bat`
