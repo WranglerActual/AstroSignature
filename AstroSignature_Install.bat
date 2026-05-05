@@ -1,13 +1,16 @@
 @echo off
 echo ================================================
-echo  AstroSignature Tool -- Auto Installer v2
+echo  AstroSignature Tool -- Auto Installer v2.1
 echo ================================================
 echo.
 SET SRCDIR=%~dp0
 SET TXTFILE=%SRCDIR%AstroSignature.txt
 SET PYFILE=%SRCDIR%AstroSignature.py
+SET DEST=
+SET CFGDEST=
 echo Source folder: %SRCDIR%
 echo.
+:: Step 1 -- Locate the source file
 IF EXIST "%TXTFILE%" GOTO DOTXT
 IF EXIST "%PYFILE%" GOTO DOPY
 echo ERROR: AstroSignature.py or .txt not found in:
@@ -27,15 +30,38 @@ echo.
 :DOPY
 echo Found AstroSignature.py -- ready to install.
 echo.
+:: Step 2 -- Try to read Siril config file for script path
+echo Checking Siril configuration file...
+SET CFGDIR=%LOCALAPPDATA%\siril
+IF NOT EXIST "%CFGDIR%" GOTO SKIPCFG
+:: Search for config.1.x file (handles future Siril versions)
+FOR %%F IN ("%CFGDIR%\config.1.*") DO SET CFGFILE=%%F
+IF NOT DEFINED CFGFILE GOTO SKIPCFG
+IF NOT EXIST "%CFGFILE%" GOTO SKIPCFG
+echo   Found config file: %CFGFILE%
+:: Extract script_path= line from config
+FOR /F "tokens=2 delims==" %%A IN ('findstr /B "script_path=" "%CFGFILE%"') DO SET RAWPATH=%%A
+IF NOT DEFINED RAWPATH GOTO SKIPCFG
+:: Take only the first path (before the semicolon)
+FOR /F "tokens=1 delims=;" %%B IN ("%RAWPATH%") DO SET CFGDEST=%%B
+IF NOT DEFINED CFGDEST GOTO SKIPCFG
+:: Clean up double backslashes from config file format
+SET CFGDEST=%CFGDEST:\\=\%
+echo   Siril script path from config: %CFGDEST%
+SET DEST=%CFGDEST%
+GOTO INSTALL
+:SKIPCFG
+echo   Config file not found or unreadable -- using path detection.
+echo.
+:: Step 3 -- Fallback: auto-detect Siril scripts directory
 echo Searching for Siril scripts directory...
 echo.
 IF EXIST "%APPDATA%\siril\scripts\" GOTO LOC1
 IF EXIST "%APPDATA%\Siril\scripts\" GOTO LOC2
-IF EXIST "%LOCALAPPDATA%\siril-scripts\utility\" GOTO LOC3
-IF EXIST "%LOCALAPPDATA%\siril\scripts\" GOTO LOC4
-IF EXIST "%LOCALAPPDATA%\Siril\scripts\" GOTO LOC5
-IF EXIST "%PROGRAMFILES%\Siril\scripts\" GOTO LOC6
-IF EXIST "%PROGRAMFILES(X86)%\Siril\scripts\" GOTO LOC7
+IF EXIST "%LOCALAPPDATA%\siril\scripts\" GOTO LOC3
+IF EXIST "%LOCALAPPDATA%\Siril\scripts\" GOTO LOC4
+IF EXIST "%PROGRAMFILES%\Siril\scripts\" GOTO LOC5
+IF EXIST "%PROGRAMFILES(X86)%\Siril\scripts\" GOTO LOC6
 GOTO NOTFOUND
 :LOC1
 SET DEST=%APPDATA%\siril\scripts\
@@ -46,22 +72,18 @@ SET DEST=%APPDATA%\Siril\scripts\
 echo   Found: %APPDATA%\Siril\scripts\
 GOTO INSTALL
 :LOC3
-SET DEST=%LOCALAPPDATA%\siril-scripts\utility\
-echo   Found: %LOCALAPPDATA%\siril-scripts\utility\
-GOTO INSTALL
-:LOC4
 SET DEST=%LOCALAPPDATA%\siril\scripts\
 echo   Found: %LOCALAPPDATA%\siril\scripts\
 GOTO INSTALL
-:LOC5
+:LOC4
 SET DEST=%LOCALAPPDATA%\Siril\scripts\
 echo   Found: %LOCALAPPDATA%\Siril\scripts\
 GOTO INSTALL
-:LOC6
+:LOC5
 SET DEST=%PROGRAMFILES%\Siril\scripts\
 echo   Found: %PROGRAMFILES%\Siril\scripts\
 GOTO INSTALL
-:LOC7
+:LOC6
 SET DEST=%PROGRAMFILES(X86)%\Siril\scripts\
 echo   Found: %PROGRAMFILES(X86)%\Siril\scripts\
 GOTO INSTALL
