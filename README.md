@@ -46,7 +46,7 @@ AstroSignature is a Python script for [Siril](https://siril.org) (v1.4.2+) that 
 
 A Windows batch file `AstroSignature_Install.bat` is included for one-click installation. The installer automatically searches all known Siril script locations on your system and installs to whichever one is found.
 
-1. Download both `AstroSignature_Install.bat` and `AstroSignature.py` and place them in the **same folder** — your Downloads folder works fine, or any folder you prefer. The installer looks for the script file in whatever folder it is run from.
+1. Download both `AstroSignature_Install.bat` and `AstroSignature.py` (or `.txt`) and place them in the **same folder** — your Downloads folder works fine, or any folder you prefer. The installer looks for the script file in whatever folder it is run from.
 2. To install or update:
    - Make sure both files are in the same folder
    - Double-click `AstroSignature_Install.bat`
@@ -64,19 +64,22 @@ A Windows batch file `AstroSignature_Install.bat` is included for one-click inst
 
 ### Windows Scripts Directory
 
-The Siril scripts folder location varies on Windows depending on your Siril version and installation type. The auto-installer checks all known locations automatically. If installing manually, check these locations in order — use whichever one exists on your system:
+The Siril scripts folder location varies on Windows depending on your Siril version and installation type. The auto-installer checks all of these automatically. If installing manually, check these locations in order — use whichever one exists on your system:
 
 | Priority | Path |
 |---|---|
 | 1 | `C:\Users\[username]\AppData\Roaming\siril\scripts\` |
-| 2 | `C:\Users\[username]\AppData\Local\siril-scripts\utility\` |
-| 3 | `C:\Users\[username]\AppData\Local\siril\scripts\` |
-| 4 | `C:\Program Files\Siril\scripts\` |
-| 5 | `C:\Program Files (x86)\Siril\scripts\` |
+| 2 | `C:\Users\[username]\AppData\Roaming\Siril\scripts\` |
+| 3 | `C:\Users\[username]\AppData\Local\siril-scripts\utility\` |
+| 4 | `C:\Users\[username]\AppData\Local\siril\scripts\` |
+| 5 | `C:\Users\[username]\AppData\Local\Siril\scripts\` |
+| 6 | `C:\Program Files\Siril\scripts\` |
+| 7 | `C:\Program Files (x86)\Siril\scripts\` |
 
 > **Tip:** If you are unsure which path Siril is using on your system, open Siril and go to **Preferences > Scripts** — the configured scripts path is displayed there.
 
 > **Note:** If none of these folders exist yet, create `C:\Users\[username]\AppData\Roaming\siril\scripts\` manually, then add it in Siril under **Preferences > Scripts**.
+
 ---
 
 ### Option 2 — Manual (All platforms)
@@ -163,7 +166,7 @@ If no system fonts are found, falls back to Pillow's built-in default font.
 | 1.3.4 | Fix blank output for TIFF inputs; smart image pipeline handles HW/CHW/HWC layouts and 8-bit/16-bit/float ranges automatically. Enhancement credit: @donheff (Issue #7) |
 | 1.3.5 | GUI version label corrected; default fields restored to author defaults |
 | 1.3.6 | Generic default field values for friendlier first-run experience (pipe-separated placeholders guide new users on formatting) |
-| 1.3.6 | Auto-installer v2 — detects all known Windows Siril script locations (Issue #6) |
+| 1.3.6 | Auto-installer v2.1 -- reads Siril config file directly for install path; fallback multi-path detection retained for compatibility |
 
 ---
 
