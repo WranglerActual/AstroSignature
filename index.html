@@ -324,51 +324,8 @@
 
   footer .heart { color: var(--gold); }
 
-  .other-apps {
-    max-width: 420px;
-    margin: 28px auto;
-    text-align: left;
-  }
-
-  .other-apps-label {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--text-dim);
-    margin-bottom: 10px;
-    text-align: center;
-  }
-
-  .other-apps-card {
-    display: block;
-    background: var(--panel);
-    border: 1px solid var(--hairline);
-    border-radius: var(--radius);
-    padding: 16px 18px;
-  }
-
-  .other-apps-card:hover {
-    border-color: var(--gold-dim);
-    text-decoration: none;
-  }
-
-  .other-apps-card .label {
-    font-family: 'Inter', sans-serif;
-    font-weight: 600;
-    color: #f5f3ec;
-    font-size: 0.92rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-  }
-
-  .other-apps-card .desc {
-    margin-top: 6px;
-    font-size: 0.83rem;
-    color: var(--text-dim);
-    line-height: 1.5;
+  .link-cards.three {
+    grid-template-columns: repeat(3, 1fr);
   }
 
   /* ---------- Responsive ---------- */
@@ -377,6 +334,7 @@
     .features { grid-template-columns: 1fr; }
     .gallery { grid-template-columns: 1fr; }
     .link-cards { grid-template-columns: 1fr; }
+    .link-cards.three { grid-template-columns: 1fr; }
     .hero { padding: 72px 0 56px; }
   }
 
@@ -535,6 +493,44 @@
   </div>
 </section>
 
+<section id="other-apps">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>Other apps by Randy</h2>
+      <p>Another project built for the astrophotography community.</p>
+    </div>
+    <div class="link-cards">
+      <a class="link-card wide" href="https://stargazerpro.online/">
+        <div class="label">Stargazer Pro — AI Backyard Assistant <span class="arrow">→</span></div>
+        <div class="desc">Real-time astronomy weather, session planning, and smart target suggestions for your backyard setup — built for the Dwarf 3.</div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<section id="find-randy">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>Find Randy on the Web</h2>
+      <p>Where else to follow along.</p>
+    </div>
+    <div class="link-cards three">
+      <a class="link-card" href="https://www.facebook.com/profile.php?id=61571601268370">
+        <div class="label">Facebook <span class="arrow">→</span></div>
+        <div class="desc">Follow along and say hello.</div>
+      </a>
+      <a class="link-card" href="https://telescopius.com/profile/wrangleractual">
+        <div class="label">Telescopius <span class="arrow">→</span></div>
+        <div class="desc">Randy's online astrophotography gallery.</div>
+      </a>
+      <a class="link-card" href="https://github.com/WranglerActual">
+        <div class="label">GitHub <span class="arrow">→</span></div>
+        <div class="desc">Code, issues, and other projects.</div>
+      </a>
+    </div>
+  </div>
+</section>
+
 <footer>
   <div class="wrap">
     <p>
@@ -544,20 +540,6 @@
     <p>
       Built by Randy Holder for the <a href="https://siril.org">Siril</a> community ·
       <a href="mailto:randy.holder7@gmail.com">randy.holder7@gmail.com</a>
-    </p>
-
-    <div class="other-apps">
-      <div class="other-apps-label">Other apps by Randy</div>
-      <a class="other-apps-card" href="https://stargazerpro.online/">
-        <div class="label">Stargazer Pro — AI Backyard Assistant <span class="arrow">→</span></div>
-        <div class="desc">Real-time astronomy weather, session planning, and smart target suggestions for your backyard setup — built for the Dwarf 3.</div>
-      </a>
-    </div>
-
-    <p>
-      <a href="https://www.facebook.com/profile.php?id=61571601268370">Facebook</a> ·
-      <a href="https://telescopius.com/profile/wrangleractual">Telescopius</a> ·
-      <a href="https://github.com/WranglerActual">GitHub</a>
     </p>
   </div>
 </footer>
