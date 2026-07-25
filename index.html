@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AstroSignature — Text Signature Tool for Siril</title>
+<meta name="description" content="AstroSignature is a free Python script for Siril that adds a customizable two-line text signature to your astrophotography images — no image file required.">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg:        #0f1626;
+    --panel:     #161f33;
+    --panel-2:   #1c2740;
+    --hairline:  #2a3550;
+    --gold:      #c9a84c;
+    --gold-dim:  #a68a3f;
+    --text:      #e8e6df;
+    --text-dim:  #8b93a7;
+    --radius:    10px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3 { font-family: 'Fraunces', Georgia, serif; font-weight: 500; margin: 0; }
+
+  a { color: var(--gold); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  a:focus-visible, button:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 3px;
+  }
+
+  .wrap {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+
+  /* ---------- Hero ---------- */
+
+  .hero {
+    position: relative;
+    overflow: hidden;
+    padding: 96px 0 80px;
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  #stars {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+  }
+
+  .hero .wrap {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+  }
+
+  .eyebrow {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--gold);
+    border: 1px solid var(--gold-dim);
+    border-radius: 100px;
+    padding: 5px 14px;
+    margin-bottom: 28px;
+  }
+
+  .hero h1 {
+    font-size: clamp(2.4rem, 6vw, 3.6rem);
+    letter-spacing: -0.01em;
+    color: #f5f3ec;
+  }
+
+  .hero .tagline {
+    max-width: 560px;
+    margin: 22px auto 0;
+    color: var(--text-dim);
+    font-size: 1.08rem;
+  }
+
+  .cta-row {
+    display: flex;
+    justify-content: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-top: 36px;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 0.95rem;
+    border: 1px solid transparent;
+  }
+
+  .btn-primary {
+    background: var(--gold);
+    color: #1a1206;
+  }
+  .btn-primary:hover { background: #d9b95c; text-decoration: none; }
+
+  .btn-ghost {
+    border-color: var(--hairline);
+    color: var(--text);
+  }
+  .btn-ghost:hover { border-color: var(--gold-dim); text-decoration: none; }
+
+  /* ---------- Section shell ---------- */
+
+  section { padding: 72px 0; }
+  section + section { border-top: 1px solid var(--hairline); }
+
+  .section-head { margin-bottom: 40px; text-align: center; }
+  .section-head h2 { font-size: 1.8rem; color: #f5f3ec; }
+  .section-head p { color: var(--text-dim); margin-top: 10px; }
+
+  /* ---------- Features ---------- */
+
+  .features {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+
+  .feature {
+    background: var(--panel);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius);
+    padding: 22px 20px;
+  }
+
+  .feature h3 {
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: 0.98rem;
+    color: #f5f3ec;
+    margin-bottom: 6px;
+  }
+
+  .feature p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--text-dim);
+  }
+
+  /* ---------- Gallery ---------- */
+
+  .gallery {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+
+  figure { margin: 0; }
+
+  .gallery img {
+    width: 100%;
+    display: block;
+    border-radius: var(--radius);
+    border: 1px solid var(--hairline);
+    background: var(--panel);
+  }
+
+  figcaption {
+    margin-top: 10px;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    text-align: center;
+  }
+
+  /* ---------- Changelog ---------- */
+
+  .changelog-entry {
+    display: grid;
+    grid-template-columns: 88px 1fr;
+    gap: 20px;
+    padding: 18px 0;
+    border-top: 1px solid var(--hairline);
+  }
+  .changelog-entry:first-of-type { border-top: none; }
+
+  .changelog-entry .ver {
+    font-size: 0.92rem;
+    color: var(--gold);
+    padding-top: 2px;
+  }
+
+  .changelog-entry h3 {
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: 0.98rem;
+    color: #f5f3ec;
+    margin-bottom: 4px;
+  }
+
+  .changelog-entry p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--text-dim);
+  }
+
+  details {
+    margin-top: 28px;
+    border-top: 1px solid var(--hairline);
+    padding-top: 18px;
+  }
+
+  summary {
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--gold);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .older-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 18px;
+    font-size: 0.87rem;
+  }
+
+  .older-table td {
+    padding: 8px 0;
+    border-top: 1px solid var(--hairline);
+    vertical-align: top;
+  }
+
+  .older-table td:first-child {
+    width: 70px;
+    color: var(--gold);
+    font-family: 'JetBrains Mono', monospace;
+    white-space: nowrap;
+  }
+
+  .older-table td:last-child { color: var(--text-dim); }
+
+  /* ---------- Links / install ---------- */
+
+  .link-cards {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+
+  .link-card {
+    display: block;
+    background: var(--panel);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius);
+    padding: 20px 22px;
+  }
+
+  .link-card:hover {
+    border-color: var(--gold-dim);
+    text-decoration: none;
+  }
+
+  .link-card .label {
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    color: #f5f3ec;
+    font-size: 0.98rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .link-card .desc {
+    margin-top: 6px;
+    font-size: 0.87rem;
+    color: var(--text-dim);
+  }
+
+  .arrow { color: var(--gold); font-size: 1rem; }
+
+  .req-note {
+    margin-top: 28px;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    text-align: center;
+  }
+
+  /* ---------- Footer ---------- */
+
+  footer {
+    padding: 40px 0 60px;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 0.85rem;
+  }
+
+  footer a { color: var(--text-dim); text-decoration: underline; text-underline-offset: 3px; }
+  footer a:hover { color: var(--gold); }
+
+  footer .heart { color: var(--gold); }
+
+  .other-apps {
+    max-width: 420px;
+    margin: 28px auto;
+    text-align: left;
+  }
+
+  .other-apps-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+    text-align: center;
+  }
+
+  .other-apps-card {
+    display: block;
+    background: var(--panel);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+  }
+
+  .other-apps-card:hover {
+    border-color: var(--gold-dim);
+    text-decoration: none;
+  }
+
+  .other-apps-card .label {
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    color: #f5f3ec;
+    font-size: 0.92rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .other-apps-card .desc {
+    margin-top: 6px;
+    font-size: 0.83rem;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+
+  /* ---------- Responsive ---------- */
+
+  @media (max-width: 720px) {
+    .features { grid-template-columns: 1fr; }
+    .gallery { grid-template-columns: 1fr; }
+    .link-cards { grid-template-columns: 1fr; }
+    .hero { padding: 72px 0 56px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <canvas id="stars"></canvas>
+  <div class="wrap">
+    <span class="eyebrow">for Siril 1.4.2+</span>
+    <h1>AstroSignature</h1>
+    <p class="tagline">
+      A free, text-based signature tool for Siril. Type your name, target, and
+      session details straight into your processed image — no signature image
+      file, no extra software.
+    </p>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="https://raw.githubusercontent.com/WranglerActual/AstroSignature/main/AstroSignature.py" download>Download AstroSignature.py</a>
+      <a class="btn btn-ghost" href="https://github.com/WranglerActual/AstroSignature#readme">Read the full guide</a>
+    </div>
+  </div>
+</header>
+
+<section id="features">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>What it does</h2>
+      <p>Everything you need to sign an image, nothing you don't.</p>
+    </div>
+    <div class="features">
+      <div class="feature">
+        <h3>Two editable text lines</h3>
+        <p>Name and target on Line 1, session details on Line 2 — typed fresh each time.</p>
+      </div>
+      <div class="feature">
+        <h3>9-position placement</h3>
+        <p>Top, middle, or bottom, crossed with left, center, or right — pick from a dropdown.</p>
+      </div>
+      <div class="feature">
+        <h3>Font &amp; size control</h3>
+        <p>Curated system fonts with independent size sliders for each line, 12–120pt.</p>
+      </div>
+      <div class="feature">
+        <h3>Opacity &amp; shadow</h3>
+        <p>A 10–80% opacity slider plus a subtle drop shadow, readable on any background.</p>
+      </div>
+      <div class="feature">
+        <h3>Flip correction</h3>
+        <p>Handles plate-solved images and smart-scope orientation — Dwarf 3, Seestar, Vespera.</p>
+      </div>
+      <div class="feature">
+        <h3>Named profiles</h3>
+        <p>Save settings as named presets and switch between them — new in v1.3.9.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="gallery">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>See it in Siril</h2>
+      <p>From the Scripts menu to the finished image.</p>
+    </div>
+    <div class="gallery">
+      <figure>
+        <img src="images/Menu_Location.jpg" alt="AstroSignature listed under Siril's Scripts menu" loading="lazy">
+        <figcaption>Run it from Scripts → Python Scripts → Scripts</figcaption>
+      </figure>
+      <figure>
+        <img src="images/Input_Dialog.png" alt="AstroSignature input dialog showing text fields, position grid, font, and profile controls" loading="lazy">
+        <figcaption>Set your text, position, and profile</figcaption>
+      </figure>
+      <figure>
+        <img src="images/Example_Result.png" alt="Example processed astrophotography image with a text signature applied" loading="lazy">
+        <figcaption>Applied directly to your image</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<section id="updates">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>Updates</h2>
+      <p>What's changed recently.</p>
+    </div>
+
+    <div class="changelog-entry">
+      <div class="ver mono">v1.3.9</div>
+      <div>
+        <h3>Named signature profiles</h3>
+        <p>Save your settings as named presets and switch between them from a new dropdown — save, load, and delete profiles as needed. A non-deletable Default profile is always available. Requested by a user in the Siril community.</p>
+      </div>
+    </div>
+
+    <div class="changelog-entry">
+      <div class="ver mono">v1.3.8</div>
+      <div>
+        <h3>Settings persistence</h3>
+        <p>Your last-used values are now saved automatically and restored the next time you open the tool.</p>
+      </div>
+    </div>
+
+    <div class="changelog-entry">
+      <div class="ver mono">v1.3.7</div>
+      <div>
+        <h3>Resizable dialog</h3>
+        <p>Fixed window clipping on high-DPI displays and systems with larger UI fonts.</p>
+      </div>
+    </div>
+
+    <details>
+      <summary>Show full version history →</summary>
+      <table class="older-table">
+        <tr><td>v1.3.6</td><td>Friendlier default field placeholders for first-time users.</td></tr>
+        <tr><td>v1.3.5</td><td>GUI version label corrected; default fields restored.</td></tr>
+        <tr><td>v1.3.4</td><td>Fixed blank output for TIFF inputs; smart pipeline handles all common layouts and bit depths automatically.</td></tr>
+        <tr><td>v1.3.3</td><td>Fixed 8-bit JPEG write-back.</td></tr>
+        <tr><td>v1.3.2</td><td>Preserved source bit depth for FITS, 16-bit TIFF, and 8-bit JPEG/TIFF.</td></tr>
+        <tr><td>v1.3.1</td><td>Cross-platform font support — Windows, macOS, Linux.</td></tr>
+        <tr><td>v1.3.0</td><td>Independent font size sliders for each line.</td></tr>
+        <tr><td>v1.2.0</td><td>Font selection dropdown.</td></tr>
+        <tr><td>v1.1.0</td><td>9-position grid selector.</td></tr>
+        <tr><td>v1.0.0</td><td>Initial release — two-line signature with flip correction.</td></tr>
+      </table>
+    </details>
+  </div>
+</section>
+
+<section id="get-it">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>Get AstroSignature</h2>
+      <p>New here, or updating an existing install — everything you need is below.</p>
+    </div>
+    <div class="link-cards">
+      <a class="link-card" href="https://raw.githubusercontent.com/WranglerActual/AstroSignature/main/AstroSignature.py" download>
+        <div class="label">AstroSignature.py <span class="arrow">↓</span></div>
+        <div class="desc">The script itself. Required for every install.</div>
+      </a>
+      <a class="link-card" href="https://raw.githubusercontent.com/WranglerActual/AstroSignature/main/AstroSignature_Install.bat" download>
+        <div class="label">Windows installer <span class="arrow">↓</span></div>
+        <div class="desc">One-click .bat installer — finds your Siril scripts folder automatically.</div>
+      </a>
+      <a class="link-card" href="https://github.com/WranglerActual/AstroSignature#readme">
+        <div class="label">Full README <span class="arrow">→</span></div>
+        <div class="desc">Manual install steps for macOS/Linux, usage guide, and supported formats.</div>
+      </a>
+      <a class="link-card" href="https://github.com/WranglerActual/AstroSignature/issues">
+        <div class="label">Report an issue <span class="arrow">→</span></div>
+        <div class="desc">Found a bug or have a feature request? Open it on GitHub.</div>
+      </a>
+    </div>
+    <p class="req-note">Requires Siril 1.4.2+ and Python 3.9+. Pillow and numpy install automatically on first run.</p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>
+      AstroSignature is free and open source under the
+      <a href="https://www.gnu.org/licenses/gpl-3.0.html">GPL-3.0 license</a>.
+    </p>
+    <p>
+      Built by Randy Holder for the <a href="https://siril.org">Siril</a> community ·
+      <a href="mailto:randy.holder7@gmail.com">randy.holder7@gmail.com</a>
+    </p>
+
+    <div class="other-apps">
+      <div class="other-apps-label">Other apps by Randy</div>
+      <a class="other-apps-card" href="https://stargazerpro.online/">
+        <div class="label">Stargazer Pro — AI Backyard Assistant <span class="arrow">→</span></div>
+        <div class="desc">Real-time astronomy weather, session planning, and smart target suggestions for your backyard setup — built for the Dwarf 3.</div>
+      </a>
+    </div>
+
+    <p>
+      <a href="https://www.facebook.com/profile.php?id=61571601268370">Facebook</a> ·
+      <a href="https://telescopius.com/profile/wrangleractual">Telescopius</a> ·
+      <a href="https://github.com/WranglerActual">GitHub</a>
+    </p>
+  </div>
+</footer>
+
+<script>
+  // Quiet star field — a handful of slow-twinkling dots behind the hero.
+  // Static (no animation) when the visitor prefers reduced motion.
+  (function () {
+    var canvas = document.getElementById('stars');
+    var ctx = canvas.getContext('2d');
+    var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var stars = [];
+    var DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+    function size() {
+      var hero = canvas.parentElement;
+      canvas.width = hero.offsetWidth * DPR;
+      canvas.height = hero.offsetHeight * DPR;
+      canvas.style.width = hero.offsetWidth + 'px';
+      canvas.style.height = hero.offsetHeight + 'px';
+    }
+
+    function seed() {
+      var count = Math.round((canvas.width * canvas.height) / 26000);
+      stars = [];
+      for (var i = 0; i < count; i++) {
+        stars.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          r: (Math.random() * 1.1 + 0.4) * DPR,
+          base: Math.random() * 0.5 + 0.25,
+          phase: Math.random() * Math.PI * 2,
+          speed: Math.random() * 0.6 + 0.2
+        });
+      }
+    }
+
+    function draw(t) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#e8e6df';
+      for (var i = 0; i < stars.length; i++) {
+        var s = stars[i];
+        var a = reduced ? s.base : s.base + Math.sin(t * 0.001 * s.speed + s.phase) * 0.25;
+        ctx.globalAlpha = Math.max(0, a);
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      if (!reduced) requestAnimationFrame(draw);
+    }
+
+    size();
+    seed();
+    draw(0);
+    window.addEventListener('resize', function () { size(); seed(); if (reduced) draw(0); });
+  })();
+</script>
+
+</body>
+</html>
