@@ -14,6 +14,7 @@ AstroSignature is a Python script for [Siril](https://siril.org) (v1.4.2+) that 
 - **Independent font size sliders** — separate size control for Line 1 and Line 2 (12–120pt)
 - **Opacity control** — 10–80% slider for subtle or bold signatures
 - **Vertical flip correction** — handles plate-solved images and smart scope native orientation (Dwarf 3, Seestar, Vespera etc.)
+* Settings persistence & named profiles — last-used values are remembered automatically between sessions, and you can save, switch between, and delete named presets (e.g. a "Newsletter" profile with a larger font and different placement) via the Signature Profile dropdown
 - **Cross-platform** — Windows, macOS, Linux font detection with graceful fallback
 - **Shadow effect** — subtle drop shadow for readability on any background
 - **Multi-format support** — FITS, 16-bit TIFF, 32-bit float TIFF, and JPEG with correct bit-depth preservation
