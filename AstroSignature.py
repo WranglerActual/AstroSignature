@@ -4,7 +4,7 @@
 # AstroSignature.py — Custom Text Signature Tool for Siril
 # Author: Randy Holder
 # Contact: randy.holder7@gmail.com
-# Version: 1.3.8
+# Version: 1.3.9
 #
 # Copyright (C) 2026 Randy Holder
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -66,10 +66,18 @@
 # 1.3.8 - Settings persistence: last-used values saved to astrosignature.json
 #          and restored on next launch; profile-ready JSON structure for
 #          future named profiles (Issue #2)
+# 1.3.9 - Named signature profiles (Issue #4). New dropdown lets users save,
+#          switch between, and delete named presets (e.g. "Newsletter" with
+#          a larger font and different position). A non-deletable "Default"
+#          profile is always available. Selecting a profile loads its values
+#          for editing/preview only; Apply still only updates last_used and
+#          never modifies a profile. Deleting the last custom profile clears
+#          the fields for fresh input. Reuses the profile-ready JSON
+#          structure introduced in 1.3.8 -- no config file format change.
 #
 # ***********************************************
 
-VERSION = "1.3.8"
+VERSION = "1.3.9"
 
 import sys
 import os
@@ -168,6 +176,110 @@ def save_settings(params, font_name):
     except Exception as e:
         print(f"WARNING: Could not save settings ({e})")
 
+
+# ── Named profiles ────────────────────────────────────────────────────────────
+# Profiles (including the non-deletable "Default") are stored under the
+# "profiles" key of the same JSON config used for last_used settings. This
+# key was added preemptively in 1.3.8 specifically to support this feature
+# without a file-format change (Issue #4).
+
+RESERVED_PROFILE_NAME = "Default"
+
+
+def _params_to_profile_dict(params, font_name):
+    """Extract the persistable fields from a params dict into a plain profile record."""
+    return {
+        "name":     params["name"],
+        "session":  params["session"],
+        "opacity":  params["opacity"],
+        "flipped":  params["flipped"],
+        "position": params["position"],
+        "font":     font_name,
+        "size1":    params["size1"],
+        "size2":    params["size2"],
+    }
+
+
+def _read_config():
+    """Read the full config file as a dict; returns {} if missing/unreadable."""
+    import json
+    path = _config_path()
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"WARNING: Could not read settings file ({e}).")
+    return {}
+
+
+def _write_config(data):
+    import json
+    path = _config_path()
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+        return True
+    except Exception as e:
+        print(f"WARNING: Could not save settings ({e})")
+        return False
+
+
+def list_profile_names():
+    """Return profile names with 'Default' always first, followed by others alphabetically."""
+    data = _read_config()
+    profiles = data.get("profiles", {})
+    others = sorted(n for n in profiles.keys() if n != RESERVED_PROFILE_NAME)
+    names = [RESERVED_PROFILE_NAME] + others
+    return names
+
+
+def load_profile(name):
+    """Load a named profile. Returns a merged dict (DEFAULTS as fallback for missing keys),
+    or None if the profile does not exist."""
+    data = _read_config()
+    profiles = data.get("profiles", {})
+    record = profiles.get(name)
+    if record is None:
+        return None
+    merged = dict(DEFAULTS)
+    merged.update({k: v for k, v in record.items() if k in DEFAULTS})
+    return merged
+
+
+def save_profile(name, params, font_name):
+    """Create or overwrite a named profile with the current field values."""
+    name = (name or "").strip()
+    if not name:
+        raise ValueError("Profile name cannot be empty.")
+    data = _read_config()
+    if "profiles" not in data:
+        data["profiles"] = {}
+    data["profiles"][name] = _params_to_profile_dict(params, font_name)
+    ok = _write_config(data)
+    if ok:
+        print(f"Profile '{name}' saved.")
+    return ok
+
+
+def delete_profile(name):
+    """Delete a named profile. Refuses to delete the reserved 'Default' profile."""
+    if name == RESERVED_PROFILE_NAME:
+        print("WARNING: The Default profile cannot be deleted.")
+        return False
+    data = _read_config()
+    profiles = data.get("profiles", {})
+    if name not in profiles:
+        print(f"WARNING: Profile '{name}' not found -- nothing to delete.")
+        return False
+    del profiles[name]
+    data["profiles"] = profiles
+    ok = _write_config(data)
+    if ok:
+        print(f"Profile '{name}' deleted.")
+    return ok
+
+
 # ── GUI dialog ────────────────────────────────────────────────────────────────
 def get_user_input():
     try:
@@ -178,21 +290,56 @@ def get_user_input():
         cfg = load_settings()
 
         root = tk.Tk()
-        root.title("AstroSignature Tool v1.3.8")
+        root.title("AstroSignature Tool v1.3.9")
         root.resizable(True, True)
         root.configure(bg="#2b2b2b")
 
         root.update_idletasks()
-        w, h = 620, 680
+        w, h = 620, 730
         x = (root.winfo_screenwidth() // 2) - (w // 2)
         y = (root.winfo_screenheight() // 2) - (h // 2)
         root.geometry(f"{w}x{h}+{x}+{y}")
-        root.minsize(620, 680)
+        root.minsize(620, 730)
 
         # ── Corrected: version label matches VERSION constant ──
-        tk.Label(root, text="AstroSignature Tool  v1.3.8",
+        tk.Label(root, text="AstroSignature Tool  v1.3.9",
                 bg="#1a1a2e", fg="#c9a84c",
                 font=("Arial", 13, "bold"), pady=10).pack(fill="x")
+
+        # ── Signature profiles (Issue #4) ──
+        # Selecting a profile from the dropdown loads its saved values into the
+        # fields below for editing/preview. It does NOT get saved anywhere until
+        # the user explicitly clicks Save. Apply never touches profiles -- it
+        # only updates last_used, exactly as it always has.
+        tk.Label(root, text="Signature Profile:",
+                bg="#2b2b2b", fg="#ffffff",
+                font=("Arial", 9)).pack(anchor="w", padx=20, pady=(12, 4))
+
+        profile_var = tk.StringVar(value="")  # blank on launch -- fields are pre-filled from last_used instead
+        pframe = tk.Frame(root, bg="#2b2b2b")
+        pframe.pack(fill="x", padx=20)
+
+        # Built with a placeholder now; real command wiring happens once the
+        # rest of the field variables exist further down (see refresh_profile_menu()).
+        profile_dropdown = tk.OptionMenu(pframe, profile_var, "")
+        profile_dropdown.config(bg="#3c3f41", fg="#ffffff", font=("Arial", 10),
+                               activebackground="#4a6fa5", activeforeground="#ffffff",
+                               highlightthickness=0, relief="flat", width=22)
+        profile_dropdown["menu"].config(bg="#3c3f41", fg="#ffffff",
+                                       activebackground="#4a6fa5", activeforeground="#ffffff",
+                                       font=("Arial", 10))
+        profile_dropdown.pack(side="left")
+
+        save_profile_btn = tk.Button(pframe, text="Save",
+                 bg="#4a6fa5", fg="white", font=("Arial", 9, "bold"),
+                 relief="flat", padx=10, pady=3, cursor="hand2")
+        save_profile_btn.pack(side="left", padx=(10, 0))
+
+        delete_profile_btn = tk.Button(pframe, text="Delete",
+                 bg="#7a3030", fg="white", font=("Arial", 9),
+                 relief="flat", padx=10, pady=3, cursor="hand2",
+                 state="disabled")
+        delete_profile_btn.pack(side="left", padx=(6, 0))
 
         tk.Label(root, text="Line 1 — Your name + Target  (use  |  to separate fields):",
                 bg="#2b2b2b", fg="#ffffff",
@@ -319,6 +466,107 @@ def get_user_input():
         tk.Label(sf2, textvariable=size2_var,
                 bg="#2b2b2b", fg="#c9a84c",
                 font=("Arial", 10, "bold"), width=3).pack(side="left", padx=4)
+
+        # ── Profile row wiring (deferred until here since it needs the field vars above) ──
+        def clear_fields_for_new_input():
+            """Blank text fields and reset controls to generic defaults for fresh input."""
+            name_var.set("")
+            session_var.set("")
+            opacity_var.set(DEFAULTS["opacity"])
+            flipped_var.set(DEFAULTS["flipped"])
+            pos_var.set(DEFAULTS["position"])
+            size1_var.set(DEFAULTS["size1"])
+            size2_var.set(DEFAULTS["size2"])
+            font_var.set(default_font)
+
+        def update_delete_button_state():
+            sel = profile_var.get()
+            if sel and sel != RESERVED_PROFILE_NAME:
+                delete_profile_btn.config(state="normal")
+            else:
+                delete_profile_btn.config(state="disabled")
+
+        def on_profile_pick(selected_name):
+            prof = load_profile(selected_name)
+            if prof is None:
+                return
+            name_var.set(prof["name"])
+            session_var.set(prof["session"])
+            opacity_var.set(prof["opacity"])
+            flipped_var.set(prof["flipped"])
+            pos_var.set(prof["position"])
+            size1_var.set(prof["size1"])
+            size2_var.set(prof["size2"])
+            saved_font_name = prof.get("font")
+            if saved_font_name and saved_font_name in font_names:
+                font_var.set(saved_font_name)
+            update_delete_button_state()
+
+        def refresh_profile_menu():
+            menu = profile_dropdown["menu"]
+            menu.delete(0, "end")
+            for pname in list_profile_names():
+                menu.add_command(
+                    label=pname,
+                    command=lambda v=pname: (profile_var.set(v), on_profile_pick(v))
+                )
+
+        def on_save_profile():
+            from tkinter import simpledialog
+            current_sel = profile_var.get()
+            new_name = simpledialog.askstring(
+                "Save Profile", "Profile name:",
+                initialvalue=current_sel, parent=root
+            )
+            if new_name is None:
+                return
+            new_name = new_name.strip()
+            if not new_name:
+                messagebox.showwarning("Missing", "Please enter a profile name.")
+                return
+            chosen_font_name = font_var.get()
+            snapshot = {
+                "name":     name_var.get().strip(),
+                "session":  session_var.get().strip(),
+                "opacity":  opacity_var.get(),
+                "flipped":  flipped_var.get(),
+                "position": pos_var.get(),
+                "size1":    size1_var.get(),
+                "size2":    size2_var.get(),
+            }
+            try:
+                ok = save_profile(new_name, snapshot, chosen_font_name)
+            except ValueError as e:
+                messagebox.showwarning("Missing", str(e))
+                return
+            if ok:
+                refresh_profile_menu()
+                profile_var.set(new_name)
+                update_delete_button_state()
+                messagebox.showinfo("Saved", f"Profile '{new_name}' saved.")
+            else:
+                messagebox.showerror("Error", "Could not save profile -- check console for details.")
+
+        def on_delete_profile():
+            selected = profile_var.get()
+            if not selected or selected == RESERVED_PROFILE_NAME:
+                return
+            if not messagebox.askyesno("Delete Profile",
+                                        f"Delete profile '{selected}'? This cannot be undone."):
+                return
+            ok = delete_profile(selected)
+            if ok:
+                refresh_profile_menu()
+                profile_var.set("")
+                clear_fields_for_new_input()
+                update_delete_button_state()
+            else:
+                messagebox.showerror("Error", f"Could not delete profile '{selected}'.")
+
+        save_profile_btn.config(command=on_save_profile)
+        delete_profile_btn.config(command=on_delete_profile)
+        refresh_profile_menu()
+        update_delete_button_state()
 
         result = {"ok": False}
 
@@ -794,7 +1042,7 @@ def apply_signature(siril, line1, line2, opacity_pct, flipped=True, position="Bo
 
 def main():
     print("=" * 55)
-    print("  AstroSignature Tool v1.3.8 — Randy Holder")
+    print("  AstroSignature Tool v1.3.9 — Randy Holder")
     print("  Two-line text signature for Siril 1.4+")
     print("=" * 55)
 
