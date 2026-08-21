@@ -4,7 +4,7 @@
 # AstroSignature.py — Custom Text Signature Tool for Siril
 # Author: Randy Holder
 # Contact: randy.holder7@gmail.com
-# Version: 1.3.9
+# Version: 1.3.10
 #
 # Copyright (C) 2026 Randy Holder
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -74,10 +74,17 @@
 #          never modifies a profile. Deleting the last custom profile clears
 #          the fields for fresh input. Reuses the profile-ready JSON
 #          structure introduced in 1.3.8 -- no config file format change.
+# 1.3.10 - Remember window size across sessions (Issue #9). The dialog's
+#          width/height are saved to last_used on Apply, Cancel, or window
+#          close, and restored on next launch. Independent of profile
+#          selection -- window size is a UI preference, not a signature
+#          field, so switching profiles never resizes the window. A
+#          620x730 floor and current-screen ceiling keep restored sizes
+#          sane if the saved size predates a display change.
 #
 # ***********************************************
 
-VERSION = "1.3.9"
+VERSION = "1.3.10"
 
 import sys
 import os
@@ -110,6 +117,8 @@ DEFAULTS = {
     "font":     None,   # None -> resolved to Georgia Italic / OS default at runtime
     "size1":    28,
     "size2":    22,
+    "width":    620,
+    "height":   730,
 }
 
 def _config_path():
@@ -175,6 +184,37 @@ def save_settings(params, font_name):
         print(f"Settings saved to: {path}")
     except Exception as e:
         print(f"WARNING: Could not save settings ({e})")
+
+
+def save_window_geometry(width, height):
+    """Persist the dialog's current width/height only. Called on Apply, Cancel,
+    and window-close so resizing is remembered regardless of how the dialog
+    was dismissed. Merges into whatever last_used already exists rather than
+    overwriting it, so it never clobbers signature field values, and it is
+    independent of profiles -- window size is a UI preference, not part of
+    any named profile."""
+    import json
+    path = _config_path()
+    try:
+        existing = {}
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    existing = json.load(f)
+            except Exception:
+                existing = {}
+
+        if "last_used" not in existing:
+            existing["last_used"] = {}
+        existing["last_used"]["width"] = width
+        existing["last_used"]["height"] = height
+        if "profiles" not in existing:
+            existing["profiles"] = {}
+
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(existing, f, indent=2)
+    except Exception as e:
+        print(f"WARNING: Could not save window size ({e})")
 
 
 # ── Named profiles ────────────────────────────────────────────────────────────
@@ -290,19 +330,29 @@ def get_user_input():
         cfg = load_settings()
 
         root = tk.Tk()
-        root.title("AstroSignature Tool v1.3.9")
+        root.title("AstroSignature Tool v1.3.10")
         root.resizable(True, True)
         root.configure(bg="#2b2b2b")
 
         root.update_idletasks()
-        w, h = 620, 730
+        # ── Restore last-used window size (Issue #9) ──
+        # Clamp to a 620x730 floor (matches minsize -- prevents the pre-1.3.7
+        # clipping bug from recurring) and to the current screen as a ceiling
+        # (in case the saved size came from a larger display).
+        try:
+            saved_w = int(cfg.get("width", 620))
+            saved_h = int(cfg.get("height", 730))
+        except (TypeError, ValueError):
+            saved_w, saved_h = 620, 730
+        w = max(620, min(saved_w, root.winfo_screenwidth()))
+        h = max(730, min(saved_h, root.winfo_screenheight()))
         x = (root.winfo_screenwidth() // 2) - (w // 2)
         y = (root.winfo_screenheight() // 2) - (h // 2)
         root.geometry(f"{w}x{h}+{x}+{y}")
         root.minsize(620, 730)
 
         # ── Corrected: version label matches VERSION constant ──
-        tk.Label(root, text="AstroSignature Tool  v1.3.9",
+        tk.Label(root, text="AstroSignature Tool  v1.3.10",
                 bg="#1a1a2e", fg="#c9a84c",
                 font=("Arial", 13, "bold"), pady=10).pack(fill="x")
 
@@ -579,6 +629,18 @@ def get_user_input():
                 bg="#3a1a00", fg="#ffcc66",
                 font=("Arial", 9, "bold"), pady=6, justify="center").pack()
 
+        def _capture_and_save_window_size():
+            """Read the dialog's current size and persist it. Safe to call from
+            Apply, Cancel, or the window-close button -- never touches signature
+            fields or profiles."""
+            try:
+                w_now = root.winfo_width()
+                h_now = root.winfo_height()
+                if w_now > 1 and h_now > 1:
+                    save_window_geometry(w_now, h_now)
+            except Exception as e:
+                print(f"WARNING: Could not read window size ({e})")
+
         def on_apply():
             if not session_var.get().strip():
                 messagebox.showwarning("Missing", "Please enter session details.")
@@ -597,10 +659,17 @@ def get_user_input():
                 "size2": size2_var.get()
             })
             save_settings(result, chosen_font_name)
+            # Capture size after save_settings (which rewrites last_used wholesale)
+            # so the saved width/height survive.
+            _capture_and_save_window_size()
             root.destroy()
 
         def on_cancel():
+            _capture_and_save_window_size()
             root.destroy()
+
+        # Window-close (titlebar X) should remember size too, same as Cancel.
+        root.protocol("WM_DELETE_WINDOW", on_cancel)
 
         bframe = tk.Frame(root, bg="#2b2b2b")
         bframe.pack(pady=14)
@@ -1042,7 +1111,7 @@ def apply_signature(siril, line1, line2, opacity_pct, flipped=True, position="Bo
 
 def main():
     print("=" * 55)
-    print("  AstroSignature Tool v1.3.9 — Randy Holder")
+    print("  AstroSignature Tool v1.3.10 — Randy Holder")
     print("  Two-line text signature for Siril 1.4+")
     print("=" * 55)
 
