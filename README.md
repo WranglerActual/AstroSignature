@@ -168,6 +168,10 @@ If no system fonts are found, falls back to Pillow's built-in default font.
 | 1.3.5 | GUI version label corrected; default fields restored to author defaults |
 | 1.3.6 | Generic default field values for friendlier first-run experience (pipe-separated placeholders guide new users on formatting) |
 | 1.3.6 | Auto-installer v2.1 -- reads Siril config file directly for install path; fallback multi-path detection retained for compatibility |
+| 1.3.7 | Dialog window made resizable (minsize 620x680) to prevent clipping on high-DPI displays or systems with large UI fonts |
+| 1.3.8 | Settings persistence -- last-used values saved to astrosignature.json and restored on next launch; profile-ready JSON structure for future named profiles (Issue #2) |
+| 1.3.9 | Named signature profiles (Issue #4) -- save, switch between, and delete named presets via a new dropdown. A non-deletable "Default" profile is always available |
+| 1.3.10 | Window size remembered across sessions (Issue #9) -- dialog width/height saved on Apply, Cancel, or window close, restored on next launch |
 
 ---
 
