@@ -47,13 +47,13 @@ AstroSignature is a Python script for [Siril](https://siril.org) (v1.4.2+) that 
 
 A Windows batch file `AstroSignature_Install.bat` is included for one-click installation. The installer automatically searches all known Siril script locations on your system and installs to whichever one is found.
 
-1. Download both `AstroSignature_Install.bat` and `AstroSignature.py` (or `.txt`) and place them in the **same folder** — your Downloads folder works fine, or any folder you prefer. The installer looks for the script file in whatever folder it is run from.
-2. To install or update:
-   - Make sure both files are in the same folder
+1. Download [`AstroSignature.zip`](https://github.com/WranglerActual/AstroSignature/releases/latest/download/AstroSignature.zip) — this always points to the latest release and contains both `AstroSignature.py` and `AstroSignature_Install.bat` together
+2. Unzip it — your Downloads folder works fine, or any folder you prefer. Both files will be extracted into the same folder automatically
+3. To install or update:
    - Double-click `AstroSignature_Install.bat`
    - The installer detects your Siril scripts directory, installs the script, and cleans up automatically
    - The console output shows exactly which path was used
-3. Refresh scripts in Siril: **Preferences > Scripts > refresh > Apply**
+4. Refresh scripts in Siril: **Preferences > Scripts > refresh > Apply**
 
 > **Note:** Windows may display a security prompt the first time you run the installer. This is normal for downloaded batch files — click **Run anyway** to proceed.
 
@@ -85,7 +85,9 @@ The Siril scripts folder location varies on Windows depending on your Siril vers
 
 ### Option 2 — Manual (All platforms)
 
-1. Download `AstroSignature.py`
+Use this option if you're on macOS/Linux, or prefer not to use the auto-installer.
+
+1. Download `AstroSignature.py` — either extract it from [`AstroSignature.zip`](https://github.com/WranglerActual/AstroSignature/releases/latest/download/AstroSignature.zip), or download the file directly from the repository
 2. Place it in your Siril user scripts folder:
    - **Windows:** See the Windows Scripts Directory section above
    - **macOS:** `~/Library/Application Support/siril/scripts/`
