@@ -201,7 +201,7 @@ Licensed under the [GNU General Public License v3.0 or later](https://www.gnu.or
 ## Contact & Bug Reports
 
 **Author:** Randy Holder  
-**Email:** randy.holder7@gmail.com  
+**Email:** randyholder7@gmail.com  
 
 Bug reports, feature requests and feedback are welcome via GitHub Issues.
 
