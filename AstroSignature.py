@@ -4,7 +4,7 @@
 # AstroSignature.py — Custom Text Signature Tool for Siril
 # Author: Randy Holder
 # Contact: randy.holder7@gmail.com
-# Version: 1.3.10
+# Version: 1.4.0
 #
 # Copyright (C) 2026 Randy Holder
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -29,7 +29,8 @@
 # Line 1: Your name + target name (editable each time)
 # Line 2: Session details (editable each time)
 # Features: 9-position grid selector, font dropdown, independent font size
-# sliders for each line, opacity control, and vertical flip correction.
+# sliders for each line, opacity control, adjustable edge margin, and
+# vertical flip correction.
 #
 # VERTICAL FLIP CORRECTION CHECKBOX:
 # Check ON  — for images that have been plate-solved in Siril (Siril flips
@@ -81,10 +82,21 @@
 #          field, so switching profiles never resizes the window. A
 #          620x730 floor and current-screen ceiling keep restored sizes
 #          sane if the saved size predates a display change.
+# 1.4.0  - Adjustable edge margin. New "Margin (%)" slider (1-10%, step 0.5,
+#          default 2.5) replaces the hard-coded 2.5% edge inset in
+#          apply_signature(). Applies to both axes: horizontal margin is a
+#          percentage of image width, vertical margin a percentage of image
+#          height. Saved in last_used and in named profiles like opacity;
+#          settings files and profiles saved before 1.4.0 have no margin
+#          key and fall back to 2.5, so existing signatures are unchanged.
+#          Minimum dialog height raised 730 -> 810 so the new slider row
+#          doesn't push the Apply/Cancel buttons out of view; the floor is
+#          capped at screen height on small displays.
+#          QA verified across all 9 positions and both flip states.
 #
 # ***********************************************
 
-VERSION = "1.3.10"
+VERSION = "1.4.0"
 
 import sys
 import os
@@ -112,14 +124,41 @@ DEFAULTS = {
     "name":     "Your Name  |  Target Name",
     "session":  "Your Location  |  Exposure  |  Subs  |  Filter",
     "opacity":  40,
+    "margin":   2.5,    # edge inset, % of width (x) and % of height (y)
     "flipped":  True,
     "position": "Bottom Right",
     "font":     None,   # None -> resolved to Georgia Italic / OS default at runtime
     "size1":    28,
     "size2":    22,
     "width":    620,
-    "height":   730,
+    "height":   810,
 }
+
+# Dialog size floor. Height raised from 730 to 810 in 1.4.0 to make room for the
+# Margin slider row (measured natural height 798 px; 730 clipped the buttons).
+MIN_WIN_W = 620
+MIN_WIN_H = 810
+
+# Margin slider bounds (percent). Stored values are clamped/snapped to these
+# on load so a hand-edited or corrupt config can't push text off the image.
+MARGIN_MIN  = 1.0
+MARGIN_MAX  = 10.0
+MARGIN_STEP = 0.5
+
+
+def _sanitize_margin(value):
+    """Coerce a stored margin to a float in [MARGIN_MIN, MARGIN_MAX], snapped to
+    MARGIN_STEP. Missing/invalid values fall back to the default (2.5)."""
+    import math
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return DEFAULTS["margin"]
+    if not math.isfinite(v):
+        return DEFAULTS["margin"]
+    v = max(MARGIN_MIN, min(MARGIN_MAX, v))
+    return round(v / MARGIN_STEP) * MARGIN_STEP
+
 
 def _config_path():
     """Return the config file path, preferring the script directory with a home-dir fallback."""
@@ -146,6 +185,7 @@ def load_settings():
             saved = data.get("last_used", {})
             merged = dict(DEFAULTS)
             merged.update({k: v for k, v in saved.items() if k in DEFAULTS})
+            merged["margin"] = _sanitize_margin(merged.get("margin"))
             print(f"Settings loaded from: {path}")
             return merged
         except Exception as e:
@@ -170,6 +210,7 @@ def save_settings(params, font_name):
             "name":     params["name"],
             "session":  params["session"],
             "opacity":  params["opacity"],
+            "margin":   params["margin"],
             "flipped":  params["flipped"],
             "position": params["position"],
             "font":     font_name,
@@ -232,6 +273,7 @@ def _params_to_profile_dict(params, font_name):
         "name":     params["name"],
         "session":  params["session"],
         "opacity":  params["opacity"],
+        "margin":   params["margin"],
         "flipped":  params["flipped"],
         "position": params["position"],
         "font":     font_name,
@@ -284,6 +326,8 @@ def load_profile(name):
         return None
     merged = dict(DEFAULTS)
     merged.update({k: v for k, v in record.items() if k in DEFAULTS})
+    # Profiles saved before 1.4.0 have no "margin" key -> DEFAULTS (2.5) applies.
+    merged["margin"] = _sanitize_margin(merged.get("margin"))
     return merged
 
 
@@ -330,29 +374,35 @@ def get_user_input():
         cfg = load_settings()
 
         root = tk.Tk()
-        root.title("AstroSignature Tool v1.3.10")
+        root.title(f"AstroSignature Tool v{VERSION}")
         root.resizable(True, True)
         root.configure(bg="#2b2b2b")
 
         root.update_idletasks()
         # ── Restore last-used window size (Issue #9) ──
-        # Clamp to a 620x730 floor (matches minsize -- prevents the pre-1.3.7
-        # clipping bug from recurring) and to the current screen as a ceiling
-        # (in case the saved size came from a larger display).
+        # Clamp to the MIN_WIN_W x MIN_WIN_H floor (matches minsize -- prevents
+        # the pre-1.3.7 clipping bug from recurring) and to the current screen
+        # as a ceiling (in case the saved size came from a larger display).
+        # The floor itself is capped at the screen size so the dialog never
+        # opens taller than a small laptop display.
+        screen_w = root.winfo_screenwidth()
+        screen_h = root.winfo_screenheight()
+        floor_w = min(MIN_WIN_W, screen_w)
+        floor_h = min(MIN_WIN_H, screen_h)
         try:
-            saved_w = int(cfg.get("width", 620))
-            saved_h = int(cfg.get("height", 730))
+            saved_w = int(cfg.get("width", MIN_WIN_W))
+            saved_h = int(cfg.get("height", MIN_WIN_H))
         except (TypeError, ValueError):
-            saved_w, saved_h = 620, 730
-        w = max(620, min(saved_w, root.winfo_screenwidth()))
-        h = max(730, min(saved_h, root.winfo_screenheight()))
+            saved_w, saved_h = MIN_WIN_W, MIN_WIN_H
+        w = max(floor_w, min(saved_w, screen_w))
+        h = max(floor_h, min(saved_h, screen_h))
         x = (root.winfo_screenwidth() // 2) - (w // 2)
         y = (root.winfo_screenheight() // 2) - (h // 2)
         root.geometry(f"{w}x{h}+{x}+{y}")
-        root.minsize(620, 730)
+        root.minsize(floor_w, floor_h)
 
         # ── Corrected: version label matches VERSION constant ──
-        tk.Label(root, text="AstroSignature Tool  v1.3.10",
+        tk.Label(root, text=f"AstroSignature Tool  v{VERSION}",
                 bg="#1a1a2e", fg="#c9a84c",
                 font=("Arial", 13, "bold"), pady=10).pack(fill="x")
 
@@ -428,6 +478,25 @@ def get_user_input():
         tk.Label(oframe, textvariable=opacity_var,
                 bg="#2b2b2b", fg="#c9a84c",
                 font=("Arial", 10, "bold"), width=3).pack(side="left", padx=4)
+
+        # Edge margin slider (1.4.0) -- % of width horizontally, % of height vertically
+        tk.Label(root, text="Margin (%)  — distance from image edges:",
+                bg="#2b2b2b", fg="#ffffff",
+                font=("Arial", 9)).pack(anchor="w", padx=20, pady=(8, 0))
+        margin_var = tk.DoubleVar(value=cfg["margin"])
+        mframe = tk.Frame(root, bg="#2b2b2b")
+        mframe.pack(fill="x", padx=20)
+        tk.Scale(mframe, from_=MARGIN_MIN, to=MARGIN_MAX, resolution=MARGIN_STEP,
+                orient="horizontal",
+                variable=margin_var, bg="#2b2b2b", fg="#ffffff",
+                highlightthickness=0, troughcolor="#3c3f41",
+                activebackground="#c9a84c", length=400).pack(side="left")
+        tk.Label(mframe, textvariable=margin_var,
+                bg="#2b2b2b", fg="#c9a84c",
+                font=("Arial", 10, "bold"), width=4, anchor="e").pack(side="left", padx=(4, 0))
+        tk.Label(mframe, text="%",
+                bg="#2b2b2b", fg="#c9a84c",
+                font=("Arial", 10, "bold")).pack(side="left")
 
         # Flip checkbox
         flipped_var = tk.BooleanVar(value=cfg["flipped"])
@@ -523,6 +592,7 @@ def get_user_input():
             name_var.set("")
             session_var.set("")
             opacity_var.set(DEFAULTS["opacity"])
+            margin_var.set(DEFAULTS["margin"])
             flipped_var.set(DEFAULTS["flipped"])
             pos_var.set(DEFAULTS["position"])
             size1_var.set(DEFAULTS["size1"])
@@ -543,6 +613,7 @@ def get_user_input():
             name_var.set(prof["name"])
             session_var.set(prof["session"])
             opacity_var.set(prof["opacity"])
+            margin_var.set(prof["margin"])
             flipped_var.set(prof["flipped"])
             pos_var.set(prof["position"])
             size1_var.set(prof["size1"])
@@ -579,6 +650,7 @@ def get_user_input():
                 "name":     name_var.get().strip(),
                 "session":  session_var.get().strip(),
                 "opacity":  opacity_var.get(),
+                "margin":   _sanitize_margin(margin_var.get()),
                 "flipped":  flipped_var.get(),
                 "position": pos_var.get(),
                 "size1":    size1_var.get(),
@@ -651,6 +723,7 @@ def get_user_input():
                 "name": name_var.get().strip(),
                 "session": session_var.get().strip(),
                 "opacity": opacity_var.get(),
+                "margin": _sanitize_margin(margin_var.get()),
                 "flipped": flipped_var.get(),
                 "position": pos_var.get(),
                 "font_path": font_paths[chosen_font_name],
@@ -991,8 +1064,8 @@ def _hwc_rgb_float01_to_original_layout(img01, meta):
     return _hwc_rgb_float01_to_layout(img01, meta, scaled=True)
 
 
-def apply_signature(siril, line1, line2, opacity_pct, flipped=True, position="Bottom Right", font_path=None, size1=28, size2=22):
-    print(f"Applying signature — opacity {opacity_pct}% — position: {position} — font: {os.path.basename(font_path) if font_path else 'default'} — sizes: {size1}/{size2}")
+def apply_signature(siril, line1, line2, opacity_pct, flipped=True, position="Bottom Right", font_path=None, size1=28, size2=22, margin_pct=2.5):
+    print(f"Applying signature — opacity {opacity_pct}% — margin {margin_pct}% — position: {position} — font: {os.path.basename(font_path) if font_path else 'default'} — sizes: {size1}/{size2}")
 
     try:
         with siril.image_lock():
@@ -1023,8 +1096,11 @@ def apply_signature(siril, line1, line2, opacity_pct, flipped=True, position="Bo
             print(f"  Flip correction: {flipped}")
 
             pos = position.lower()
-            mx = int(width  * 0.025)
-            my = int(height * 0.025)
+            # Edge margin (1.4.0): user-set %, default 2.5. Dividing first keeps
+            # the 2.5 default bit-identical to the old hard-coded 0.025 factor.
+            margin_frac = float(margin_pct) / 100.0
+            mx = int(width  * margin_frac)
+            my = int(height * margin_frac)
             block_h = th1 + gap + th2
 
             # Horizontal alignment
@@ -1111,7 +1187,7 @@ def apply_signature(siril, line1, line2, opacity_pct, flipped=True, position="Bo
 
 def main():
     print("=" * 55)
-    print("  AstroSignature Tool v1.3.10 — Randy Holder")
+    print(f"  AstroSignature Tool v{VERSION} — Randy Holder")
     print("  Two-line text signature for Siril 1.4+")
     print("=" * 55)
 
@@ -1128,7 +1204,8 @@ def main():
                                   params["session"], params["opacity"],
                                   params["flipped"], params["position"],
                                   params["font_path"], params["size1"],
-                                  params["size2"])
+                                  params["size2"],
+                                  params.get("margin", DEFAULTS["margin"]))
         if success:
             print("")
             print("Done! Save as a new file to preserve your unsigned master.")
