@@ -13,8 +13,9 @@ AstroSignature is a Python script for [Siril](https://siril.org) (v1.4.2+) that 
 - **Font selection** — curated list of system fonts scanned automatically per OS
 - **Independent font size sliders** — separate size control for Line 1 and Line 2 (12–120pt)
 - **Opacity control** — 10–80% slider for subtle or bold signatures
+- **Adjustable edge margin** — 1–10% slider (step 0.5, default 2.5%) sets how far the signature sits from the image edges; horizontal margin scales with image width, vertical with image height
 - **Vertical flip correction** — handles plate-solved images and smart scope native orientation (Dwarf 3, Seestar, Vespera etc.)
-- **Settings persistence & named profiles** — last-used values are remembered automatically between sessions, and you can save, switch between, and delete named presets (e.g. a "Newsletter" profile with a larger font and different placement) via the Signature Profile dropdown
+- **Settings persistence & named profiles** — last-used values (including margin) are remembered automatically between sessions, and you can save, switch between, and delete named presets (e.g. a "Newsletter" profile with a larger font and different placement) via the Signature Profile dropdown
 - **Cross-platform** — Windows, macOS, Linux font detection with graceful fallback
 - **Shadow effect** — subtle drop shadow for readability on any background
 - **Multi-format support** — FITS, 16-bit TIFF, 32-bit float TIFF, and JPEG with correct bit-depth preservation
@@ -105,6 +106,7 @@ Use this option if you're on macOS/Linux, or prefer not to use the auto-installe
    - **Line 1** — edit your name and target name (e.g. `Randy Holder  |  M63 - Sunflower Galaxy`)
    - **Line 2** — enter session details (e.g. `Tontitown, AR  |  30s Exp  |  Gain 80  |  278 subs  |  Astro Filter`)
    - **Opacity** — adjust slider (default 40%)
+   - **Margin (%)** — distance from the image edges, 1–10% (default 2.5%). Increase it if prints or social-media crops trim your signature. Has no effect on the centered axis (e.g. Center, or the vertical placement of Middle Left/Right)
    - **Flip correction** — leave **ON** for plate-solved images and smart scope data (Dwarf 3, Seestar, Vespera etc.). Turn OFF only if your image data is correctly oriented and was not flipped by Siril
    - **Position** — choose from 9 grid positions (default: Bottom Right)
    - **Font** — select from available system fonts
@@ -174,6 +176,7 @@ If no system fonts are found, falls back to Pillow's built-in default font.
 | 1.3.8 | Settings persistence -- last-used values saved to astrosignature.json and restored on next launch; profile-ready JSON structure for future named profiles (Issue #2) |
 | 1.3.9 | Named signature profiles (Issue #4) -- save, switch between, and delete named presets via a new dropdown. A non-deletable "Default" profile is always available |
 | 1.3.10 | Window size remembered across sessions (Issue #9) -- dialog width/height saved on Apply, Cancel, or window close, restored on next launch |
+| 1.4.0 | Adjustable edge margin -- new Margin (%) slider (1–10%, step 0.5, default 2.5%) replaces the fixed 2.5% inset. Saved with last-used settings and named profiles; profiles from earlier versions default to 2.5%, so existing signatures are unchanged. Minimum dialog height raised to 810 px to fit the new slider. QA verified across all 9 positions and both flip states |
 
 ---
 
